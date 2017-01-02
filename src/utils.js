@@ -12,7 +12,8 @@ export const formatExpiryDate = (currValue, prevValue) => {
 }
 
 export const formatCurrency = (amount) => {
-  return `NGN ${amount.toFixed(2).replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,")}`
+  const val = [null, undefined].includes(amount) ? 0 : amount
+  return `NGN ${parseFloat(val).toFixed(2).replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,")}`
 }
 
 export const getQueryParams = (str) => {

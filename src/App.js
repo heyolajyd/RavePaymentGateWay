@@ -8,6 +8,7 @@ class App extends Component {
     super(props)
     
     this.state = {
+      amount: null,
       visible: false,
       firstname: null,
       lastname: null,
@@ -15,7 +16,6 @@ class App extends Component {
     }
 
     this.onButtonPress = this.onButtonPress.bind(this)
-    this.handleFirstName = this.handleFirstName.bind(this)
     this.closePaymentModal = this.closePaymentModal.bind(this)
   }
 
@@ -24,14 +24,9 @@ class App extends Component {
   }
   
   handlePaymentDetails(key, value) {
-    const { state } = this;
-    this.setState({ ...state, [key]: value })
+    this.setState({ [key]: value })
   }
-  
-  handleFirstName(value) {
-    this.setState({ firstname: value })
-  }
-    
+
   closePaymentModal() {
     this.setState({ visible: false })
   }
@@ -44,7 +39,7 @@ class App extends Component {
           <Input
             placeholder="First Name"
             value={firstname}
-            onChangeText={this.handleFirstName}
+            onChangeText={this.handlePaymentDetails.bind(this, 'firstname')}
           />
         </CardSection>
         <CardSection>
@@ -80,13 +75,13 @@ class App extends Component {
   }
 
   renderPaymentModal() {
-    const { visible, firstname, lastname, email } = this.state
+    const { visible, firstname, lastname, email, amount } = this.state
     return (
       <PaymentModal
         firstname={firstname}
         lastname={lastname}
         email={email}
-        amount={500}
+        amount={Number(amount)}
         visible={visible}
         title='Flw Rave Title'
         description='Flw Rave Payment Description'
