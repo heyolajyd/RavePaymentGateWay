@@ -1,4 +1,23 @@
-import React, { NativeModules } from 'react-native'
+import DeviceInfo  from 'react-native-device-info'
+import { createSelector } from 'reselect';
+
+export const selData = (props) => {
+  const { 
+    amount, firstname, lastname, email, PBFPubKey, txRef, currency, country
+  } = props
+  
+  return { 
+    amount,
+    firstname, 
+    lastname, 
+    email,
+    PBFPubKey,
+    txRef,
+    currency,
+    country
+  }
+}
+
 
 export const formatCardNumber = (value) => {
     return value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim()
@@ -11,9 +30,13 @@ export const formatExpiryDate = (currValue, prevValue) => {
   return currValue
 }
 
-export const formatCurrency = (amount) => {
+export const formatAmount = (amount) => {
   const val = [null, undefined].includes(amount) ? 0 : amount
-  return `NGN ${parseFloat(val).toFixed(2).replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,")}`
+  return parseFloat(val).toFixed(2).replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,")
+}
+
+export const formatCurrencyAmountLabel = (props) => {
+  return `PAY ${props.currency} ${formatAmount(props.amonut)}`
 }
 
 export const getQueryParams = (str) => {
@@ -36,7 +59,6 @@ export const cardTypeFromNumber = (number) => {
   
   return '';
 };
-
 
 export const formatCreditCard = (value) => {
   const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')

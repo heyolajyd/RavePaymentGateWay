@@ -1,16 +1,21 @@
 import React, { Component, PropTypes } from 'react'
 import Icon from 'react-native-vector-icons/FontAwesome'
-import { View, Modal, Text, TextInput, StyleSheet, Image, Linking } from 'react-native'
+import { 
+  TouchableHighlight, View, Modal, Text, TextInput, StyleSheet, Image, Linking, WebView 
+} from 'react-native'
 
 import RaveApi from '../actions/RaveApi'
-import { Section, Button, Input, FadeOutView, Select } from './common'
-import { formatCurrency, formatCardNumber, formatExpiryDate, getQueryParams } from '../utils'
+import { Section, Button, Input, FadeOutView, Select, CheckBox } from './common'
+import { selData, formatCurrencyAmountLabel, formatCardNumber, formatExpiryDate, getQueryParams } from '../utils'
 
 class PaymentModal extends Component {  
   constructor(props) {
     super(props)
 
     this.state = this._calculateState()
+    this._handleCloseModal = this._handleCloseModal.bind(this)
+    this._handleCheckBox = this._handleCheckBox.bind(this)
+    
   }
   
   componentWillMount() {
@@ -29,6 +34,7 @@ class PaymentModal extends Component {
         cardno: null,
         expirydate: null,
         cvv: null,
+        sortcode: null
       },
       accountDetails: {
         accountnumber: null,
@@ -46,7 +52,9 @@ class PaymentModal extends Component {
       transactionError: false,
       errorMessage: null,
       transactionInfo: false,
-      transactionMsg: null
+      transactionMsg: null,
+      useToken: false,
+      rememberMe: false,
     }
   }
   
@@ -70,29 +78,19 @@ class PaymentModal extends Component {
       errorMessage: error
     })
   }
-  
-  _getOtherDetails() {
-    const { amount, firstname, lastname, email, PBFPubKey, txRef  } = this.props
-    return { 
-      amount,
-      firstname, 
-      lastname, 
-      email,
-      PBFPubKey,
-      txRef
-    }
-  }
-  
+
   _processCardPayment() {
-    const { cardDetails } = this.state;
-    return RaveApi.chargeCard({ ...cardDetails, ...this._getOtherDetails() })
+    const { cardDetails } = this.state
+    const data = selData(this.props)
+    return RaveApi.chargeCard({ ...cardDetails, ...data })
     .then(res => this._handleSuccessfulPayment(res))
     .catch(err => this._handleFailedPayment(err))    
   }
   
   _processAccountpayment() {
     const { accountDetails } = this.state;
-    return RaveApi.chargeAccount({ ...accountDetails, ...this._getOtherDetails() })
+    const data = selData(this.props)
+    return RaveApi.chargeAccount({ ...accountDetails, ...data })
     .then(res => this._handleSuccessfulPayment(res))
     .catch(err => this._handleFailedPayment(err)) 
   }
@@ -104,8 +102,12 @@ class PaymentModal extends Component {
     : this._processAccountpayment()
   }
   
-  _handleCloseModal = () => {
-    this.setState({ visible: false })
+  _handleCloseModal() {
+    return this.props.onRequestClose()
+  }
+
+  _handleCheckBox(key) {
+    this.setState({ [key]: !this.state[key] })
   }
   
   _onSelectTab = (tab) => {
@@ -152,14 +154,14 @@ class PaymentModal extends Component {
     this.setState({ accountDetails })    
   }
   
-  renderPaymentSummary() {
-    const { amount, description, title } = this.props
+  renderPaymentInfo() {
+    const { description, title } = this.props
     return (
       <View style={styles.paymentSummary}>
         <Image style={styles.image} source={require('../assets/defaultLogo.jpg')}/>
         <Text style={styles.paymentTitle}>{title}</Text>
         <Text style={styles.paymentDescription}>{description}</Text>
-        <Text style={styles.totalAmount}>{formatCurrency(amount)}</Text>
+        <Text style={styles.totalAmount}>{formatCurrencyAmountLabel(this.props)}</Text>
       </View>
     )  
   }
@@ -183,7 +185,99 @@ class PaymentModal extends Component {
       </Section>
     )
   }
+
+  renderUseToken() {
+    const { useToken } = this.state;
+    return (
+      <Section>
+        <View style={styles.useTokenContainer}>
+          <CheckBox
+            onChange={this._handleCheckBox.bind(this, 'useToken')}
+            isChecked={useToken}
+            leftText={'Use Token'}
+          />
+        </View>
+      </Section>
+    );
+  }
   
+  renderUseTokenForm() {
+    const { cardDetails: { sortcode, cvv } } = this.state
+    return (
+      <View>
+        <Section>
+          <Input
+            ref='1'
+            placeholder='Token'
+            value={sortcode}
+            onChangeText={this._handleCardDetails.bind(this, 'sortcode')}
+            maxLength={19}
+            onSubmitEditing={() => this._focusNextField('2')}
+          />
+        </Section>
+        <Section>
+          <Input
+            ref='1'
+            placeholder='CVV'
+            value={cvv}
+            onChangeText={this._handleCardDetails.bind(this, 'cvv')}
+            maxLength={19}
+            onSubmitEditing={() => this._focusNextField('2')}
+          />
+        </Section>                
+      </View>
+    )
+  }
+
+  renderUseCardDetailsForm() {
+    const { cardDetails: { cardno, cvv, expirydate }, rememberMe } = this.state
+    return (
+      <View>
+        <Section>
+          <Input
+            ref='1'
+            placeholder='Card Number'
+            value={cardno}
+            onChangeText={this._handleCardDetails.bind(this, 'cardno')}
+            maxLength={19}
+            onSubmitEditing={() => this._focusNextField('2')}
+          />
+        </Section>
+        <Section>
+          <View style={styles.inputContainer}>
+            <Input
+              ref='2'
+              placeholder='MM / YY'
+              value={expirydate}
+              onChangeText={this._handleCardDetails.bind(this, 'expirydate')}
+              maxLength={7}
+              onSubmitEditing={() => this._focusNextField('3')}
+            />              
+          </View>
+          <View style={[styles.inputContainer, styles.spacing]}>
+            <Input
+              ref='3'
+              placeholder='CVV'
+              value={cvv}
+              onChangeText={this._handleCardDetails.bind(this, 'cvv')}
+              maxLength={3}
+              secureTextEntry
+            />             
+          </View>
+        </Section>  
+        <Section>
+          <View style={styles.checkboxContainer}>
+            <CheckBox
+              onChange={this._handleCheckBox.bind(this, 'rememberMe')}
+              isChecked={rememberMe}
+              rightText={'Remember my card'}
+            />
+          </View>
+        </Section>        
+      </View>
+    )
+  }
+
   renderErrorNotification() {
     const { transactionError, errorMessage } = this.state
     return transactionError &&
@@ -209,44 +303,14 @@ class PaymentModal extends Component {
   }
   
   renderCardForm() {
-    const { cardDetails: { cardno, cvv, expirydate } } = this.state
+    const { useToken } = this.state;
     return (
       <View>
-        <Section>
-          <Input
-            ref='1'
-            placeholder='Card Number'
-            value={cardno}
-            onChangeText={this._handleCardDetails.bind(this, 'cardno')}
-            maxLength={19}
-            returnKeyType="next"
-            onSubmitEditing={() => this._focusNextField('2')}
-          />
-        </Section>
-        <Section>
-          <View style={styles.inputContainer}>
-            <Input
-              ref='2'
-              placeholder='MM / YY'
-              value={expirydate}
-              onChangeText={this._handleCardDetails.bind(this, 'expirydate')}
-              maxLength={7}
-              returnKeyType="next"
-              onSubmitEditing={() => this._focusNextField('3')}
-            />              
-          </View>
-          <View style={[styles.inputContainer, styles.spacing]}>
-            <Input
-              ref='3'
-              placeholder='CVV'
-              value={cvv}
-              onChangeText={this._handleCardDetails.bind(this, 'cvv')}
-              maxLength={3}
-              secureTextEntry
-              returnKeyType="done"
-            />             
-          </View>
-        </Section>      
+        {this.renderUseToken()}
+        {useToken
+          ? this.renderUseTokenForm()
+          : this.renderUseCardDetailsForm()
+        }
       </View>
     )
   }
@@ -286,8 +350,8 @@ class PaymentModal extends Component {
       <View>
         { currentTab === 'CARD' ? this.renderCardForm() : this.renderAccountForm() }
           <Section>
-            <Button 
-              labelText={`PAY ${formatCurrency(this.props.amount)}`} 
+            <Button
+              labelText={formatCurrencyAmountLabel(this.props)}
               onPress={this._handlePaymentRequest} 
               loading={loading}
               buttonStyle={styles.payButton}
@@ -332,6 +396,22 @@ class PaymentModal extends Component {
       </View>    
     )
   }
+  
+  renderCloseModalIcon() {
+    return (
+      <View style={styles.closeModalIconContainer}>
+        <TouchableHighlight 
+          onPress={this._handleCloseModal}
+          underlayColor='transparent'>
+          <View>
+            <Text>
+              <Icon name='times-circle' size={16} color='#DEDEDE'/>
+            </Text>
+          </View>
+        </TouchableHighlight>
+      </View>
+    )
+  }
 
   render() {
     const { visible, transparent, onRequestClose } = this.props
@@ -343,7 +423,8 @@ class PaymentModal extends Component {
         onRequestClose={onRequestClose}>
         <View style={styles.container}>
           <View style={styles.paymentContainer}>
-            {this.renderPaymentSummary()}
+            {this.renderCloseModalIcon()}
+            {this.renderPaymentInfo()}
             {this.renderPaymentForm()}
           </View>
         </View>
@@ -360,13 +441,14 @@ const styles = StyleSheet.create({
     padding: 20
   },
   paymentContainer: {
-    alignItems: 'center',
+//     alignItems: 'center',
     backgroundColor: '#FFF', 
     borderRadius: 5
   },
+  
   parentSection: {
     flexDirection: 'row',
-    padding: 20
+    padding: 15
   },
   sectionContainer: {
     flex:1, 
@@ -382,7 +464,7 @@ const styles = StyleSheet.create({
   paymentSummary: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20
+    padding: 15
   },
   inputContainer: {
     flex: 1,
@@ -462,19 +544,35 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: 'black',
     fontWeight: '400'
+  },
+  closeModalIconContainer: {
+    alignItems: 'flex-end',
+    right: 8,
+    top: 8
+  },
+  checkboxContainer: {
+    flex: 1,
+    flexDirection: 'row'
+  },
+  useTokenContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    flexDirection: 'row'
   }
 })
 
 PaymentModal.propTypes = {
-  visible      : PropTypes.bool,
-  amount       : PropTypes.number,
-  merchantLogo : PropTypes.string,
-  description  : PropTypes.string,
-  transparent  : PropTypes.bool
+  visible        : PropTypes.bool,
+  amount         : PropTypes.number,
+  description    : PropTypes.string,
+  transparent    : PropTypes.bool,
+  onRequestClose : PropTypes.func
 }
 
 PaymentModal.defaultProps = {
-  transparent: true
+  transparent: true,
+  country    : 'Nigeria',
+  currency   : 'NGN'
 }
 
 export default PaymentModal

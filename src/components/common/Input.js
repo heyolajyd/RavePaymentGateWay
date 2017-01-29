@@ -46,6 +46,7 @@ class Input extends Component {
         maxLength={maxLength}
         returnKeyType={returnKeyType}
         onSubmitEditing={onSubmitEditing}
+        underlineColorAndroid='transparent'
         style={[styles.input, { borderColor: this.state.borderColor }]}
       />
     )    
