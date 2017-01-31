@@ -44,7 +44,7 @@ class RaveApi {
   static getAllBanks() {
     return processRequest(BANKS_URL, 'GET')
   }
-  
+
   static serializeCardDetails(cardDetails) {
     const { cardno, expirydate, ...rest } = cardDetails
     const datesArr = getExpiryDate(expirydate)
@@ -55,8 +55,6 @@ class RaveApi {
       expirymonth: datesArr[0],
       expiryyear: datesArr[1],
       meta: [],
-      currency: 'NGN',
-      country: 'Nigeria',
       ...rest
     }
   }
@@ -65,8 +63,6 @@ class RaveApi {
     return {
       IP,
       meta: [],
-      currency: 'NGN',
-      country: 'Nigeria',
       narration: null,
       passcode: null,
       payment_type:'account',
@@ -82,29 +78,40 @@ class RaveApi {
   }
   
   static chargeCard(cardDetails) {
+    const { email='', cardno, expirydate, cvv } = cardDetails
     return new Promise((resolve, reject) => {
       // Simulate server-side validation
-      if (getCardNumber(cardDetails.cardno).length < 16) {
+      if (getCardNumber(cardno).length < 16) {
         reject(`Card number must be 16 characters.`);
       }
 
-      if (getExpiryDate(cardDetails.expirydate).join('').length < 3) {
+      if (getExpiryDate(expirydate).join('').length < 3) {
         reject(`Invalid card expiry date.`);
       }
 
-      if (cardDetails.cvv.length !== 3) {
+      if (cvv.length !== 3) {
         reject(`CVV must be at 3 characters`);
+      }
+
+      if (email.length < 1) {
+        reject(`Email is required.`);
       }
       
       const requestChargeData = this.serializeCardDetails(cardDetails)
-      processRequest(GET_CHARGED_URL, 'POST', this.getPayload(requestChargeData))
-      .then(res => {
-        (res.status == 'error')
-        ? reject(res.message)
-        : resolve(res)
-      })
-      .catch(err => reject(err));
+      return this.processPayment(GET_CHARGED_URL, this.getPayload(requestChargeData))
     });
+  }
+
+  static processPayment(url, payload) {
+    return new Promise((resolve, reject) => {
+      processRequest(url, 'POST', payload)
+        .then(res => {
+          (res.status == 'error')
+          ? reject(res.message)
+          : resolve(res)
+        })
+        .catch(err => reject(err))
+    })
   }
   
   static chargeAccount(accountDetails) {
@@ -113,14 +120,12 @@ class RaveApi {
         reject(`Account Number is required.`);
       }
       const requestChargeData = this.serializeAccountDetails(accountDetails)
-      processRequest(GET_CHARGED_URL, 'POST', this.getPayload(requestChargeData))
-      .then(res => {
-        (res.status == 'error')
-        ? reject(res.message)
-        : resolve(res)
-      })
-      .catch(err => reject(err));
+      return this.processPayment(GET_CHARGED_URL, this.getPayload(requestChargeData))
     });    
+  }
+
+  static validateCharge(details) {
+    return this.processPayment(VALIDATE_CHARGE_URL, details)
   }
 }
 
