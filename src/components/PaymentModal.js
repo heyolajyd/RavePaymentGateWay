@@ -1,16 +1,22 @@
 import React, { Component, PropTypes } from 'react'
 import Icon from 'react-native-vector-icons/FontAwesome'
 import { 
-  TouchableHighlight, View, Modal, Text, TextInput, StyleSheet, Image, Linking, WebView 
+  TouchableHighlight, View, Modal, Text, TextInput, StyleSheet, Image, Linking, WebView, Dimensions
 } from 'react-native'
+
+import CardDetailsForm from './partials/CardDetailsForm'
+import TokenForm from './partials/TokenForm'
+import AuthWebView from './partials/AuthWebView'
 
 import RaveApi from '../actions/RaveApi'
 import { Section, Button, Input, FadeOutView, Select, CheckBox } from './common'
 import { 
   selData, formatCurrencyAmountLabel, formatCardNumber, formatExpiryDate, getQueryParams, 
-  SUCCESS, NEED_TO_VALIDATE, VBVSECURECODE, PIN, selResponseAction, selAuthModel, selTxnRef, 
-  selResponseMessage, selFormTypeFields, selValidationBtnLabel
+  SUCCESS, NEED_TO_VALIDATE, VBVSECURECODE, PIN, selResponseAction, selAuthModel, selAuthUrl, 
+  selTxnRef, selResponseMessage, selFormTypeFields, selValidationBtnLabel,
 } from '../utils'
+
+const dimensions = Dimensions.get('window')
 
 class PaymentModal extends Component {  
   constructor(props) {
@@ -28,18 +34,13 @@ class PaymentModal extends Component {
       this.setState({ banks: res.data })
     })
     .catch(err => {
-      throw (err)
+      throw err
     })
   }
   
   _calculateState() {
     return {
-      cardDetails: {
-        cardno: null,
-        expirydate: null,
-        cvv: null,
-        sortcode: null
-      },
+      cardDetails: {},
       accountDetails: {
         accountnumber: null,
         accountbank: null,
@@ -47,7 +48,6 @@ class PaymentModal extends Component {
       },
       validateDetails: {
         otp: null,
-        pin: null,
         txRef: null
       },      
       banks: [],
@@ -65,12 +65,13 @@ class PaymentModal extends Component {
       useToken: false,
       rememberMe: false,
       needsValidation: false,
-      authModel: null
+      authModel: null,
+      authUrl: null
     }
   }
   
   _handleSuccessfulPayment(res) {
-    return selResponseAction(res.data) === SUCCESS
+    return (selResponseAction(res.data) === SUCCESS)
     ? this._handleTxnComplete(res.data)
     : this._handleValidateTxn(res.data)
   }
@@ -86,17 +87,23 @@ class PaymentModal extends Component {
     this.setState({
       loading: false,
       transactionMsg,
-      transactionInfo
+      transactionInfo: true
     })    
   }
 
   _handleValidateTxn(data) {
-    const needsValidation = (selResponseAction(res.data) == NEED_TO_VALIDATE)
+    const needsValidation = (selResponseAction(data) == NEED_TO_VALIDATE)
     const authModel = selAuthModel(data)
+    const authUrl = selAuthUrl(data)
     const txRef = selTxnRef(data)
+    const authView = (authModel === VBVSECURECODE)
+
     this.setState({ 
       needsValidation, 
       authModel, 
+      authUrl,
+      authView,
+      loading: false,
       validateDetails: { ...this.state.validateDetails, txRef }
     })
   }
@@ -126,9 +133,10 @@ class PaymentModal extends Component {
   }
 
   _processValidateCharge() {
-    const { validateCharge } = this.state
-    return RaveApi.validateCharge({ ...validateDetails })
-    .then(res => this._handleSuccessfulPayment(res))
+    const { PBFPubKey } = this.props
+    const { validateDetails } = this.state
+    return RaveApi.validateCharge({ ...validateDetails, PBFPubKey })
+    .then(res => return this._handleSuccessfulPayment(res))
     .catch(err => this._handleFailedPayment(err)) 
   }
     
@@ -143,9 +151,12 @@ class PaymentModal extends Component {
         : this._processAccountpayment()
       )
   }
-  
+
   _handleCloseModal() {
-    return this.props.onRequestClose()
+    this.setState(
+      { ...this._calculateState()}, 
+      this.props.onRequestClose()
+    )
   }
 
   _handleCheckBox(key) {
@@ -161,10 +172,6 @@ class PaymentModal extends Component {
     this.setState({ accountDetails })    
   }
   
-  _focusNextField = (nextField) => {
-    this.refs[nextField].onFocus();
-  }
-  
   _resetErrorNotification = () => {
     this.setState({ transactionError: false, errorMessage: null })
   }
@@ -174,20 +181,7 @@ class PaymentModal extends Component {
   }
 
   _handleCardDetails(key, value) {
-    let formattedValue = null
-    
-    switch(key) {
-      case 'cardno':
-        formattedValue = formatCardNumber(value)
-        break;
-      case 'expirydate':
-        formattedValue = formatExpiryDate(value, this.state.cardDetails.expirydate)
-        break;
-      default:
-        formattedValue = value
-        break;
-    }
-    const cardDetails = { ...this.state.cardDetails, [key]: formattedValue };
+    const cardDetails = { ...this.state.cardDetails, [key]: value };
     this.setState({ cardDetails })
   }
   
@@ -199,6 +193,20 @@ class PaymentModal extends Component {
   _handleValidateDetails(key, value) {
     const validateDetails = { ...this.state.validateDetails, [key]: value }
     this.setState({ validateDetails })
+  }
+
+  _handleChange(prop, key, value) {
+    const propVal = { ...this.state[prop], [key]: value }
+    this.setState({ [prop]: propVal })
+  }
+
+  _handleNavChange = (url) => {
+    isComplete = url.includes(RaveApi.RootUrl)
+    this.setState({ 
+      authView: !isComplete,
+      transactionMsg: isComplete ? 'Approved. Successful' : null,
+      transactionInfo: true
+    })
   }
   
   renderPaymentInfo() {
@@ -249,79 +257,19 @@ class PaymentModal extends Component {
   }
   
   renderUseTokenForm() {
-    const { cardDetails: { sortcode, cvv } } = this.state
     return (
-      <View>
-        <Section>
-          <Input
-            ref='1'
-            placeholder='Token'
-            value={sortcode}
-            onChangeText={this._handleCardDetails.bind(this, 'sortcode')}
-            maxLength={19}
-            onSubmitEditing={() => this._focusNextField('2')}
-          />
-        </Section>
-        <Section>
-          <Input
-            ref='1'
-            placeholder='CVV'
-            value={cvv}
-            onChangeText={this._handleCardDetails.bind(this, 'cvv')}
-            maxLength={19}
-            onSubmitEditing={() => this._focusNextField('2')}
-          />
-        </Section>                
-      </View>
+      <TokenForm onInputChange={this._handleCardDetails.bind(this)} />
     )
   }
 
   renderUseCardDetailsForm() {
-    const { cardDetails: { cardno, cvv, expirydate }, rememberMe } = this.state
+    const { authModel } = this.props
     return (
-      <View>
-        <Section>
-          <Input
-            ref='1'
-            placeholder='Card Number'
-            value={cardno}
-            onChangeText={this._handleCardDetails.bind(this, 'cardno')}
-            maxLength={19}
-            onSubmitEditing={() => this._focusNextField('2')}
-          />
-        </Section>
-        <Section>
-          <View style={styles.inputContainer}>
-            <Input
-              ref='2'
-              placeholder='MM / YY'
-              value={expirydate}
-              onChangeText={this._handleCardDetails.bind(this, 'expirydate')}
-              maxLength={7}
-              onSubmitEditing={() => this._focusNextField('3')}
-            />              
-          </View>
-          <View style={[styles.inputContainer, styles.spacing]}>
-            <Input
-              ref='3'
-              placeholder='CVV'
-              value={cvv}
-              onChangeText={this._handleCardDetails.bind(this, 'cvv')}
-              maxLength={3}
-              secureTextEntry
-            />             
-          </View>
-        </Section>  
-        <Section>
-          <View style={styles.checkboxContainer}>
-            <CheckBox
-              onChange={this._handleCheckBox.bind(this, 'rememberMe')}
-              isChecked={rememberMe}
-              rightText={'Remember my card'}
-            />
-          </View>
-        </Section>        
-      </View>
+      <CardDetailsForm
+        authModel={authModel}
+        onInputChange={this._handleCardDetails.bind(this)}
+        onCheckBoxChange={this._handleCheckBox}
+      />
     )
   }
 
@@ -340,13 +288,11 @@ class PaymentModal extends Component {
   renderInfoNotification() {
     const { transactionInfo, transactionMsg } = this.state
     return transactionInfo &&
-      <FadeOutView callback={this._resetInfoNotification}>
-        <Section>
-          <View style={[styles.notification, styles.infoNotification]}>
-            <Text style={styles.notificationText}>{transactionMsg}</Text>
-          </View>
-        </Section>
-      </FadeOutView>
+      <Section>
+        <View style={[styles.notification, styles.infoNotification]}>
+          <Text style={styles.notificationText}>{transactionMsg}</Text>
+        </View>
+      </Section>
   }
 
   renderValidationFields() {
@@ -362,7 +308,7 @@ class PaymentModal extends Component {
                 ref={key}
                 placeholder={placeholder}
                 value={validateDetails[field]}
-                onChangeText={this._handleValidateDetails.bind(this, field)}
+                onChangeText={this._handleChange.bind(this, 'validateDetails', field)}
                 maxLength={19}
                 onSubmitEditing={() => this._focusNextField(key)}
               />
@@ -374,16 +320,38 @@ class PaymentModal extends Component {
   }
 
   renderAuthWebView() {
-
+    const { authUrl, authView } = this.state
+    return (
+      <AuthWebView 
+        url={authUrl} 
+        visible={authView}
+        dimensions={dimensions}
+        onNavChange={this._handleNavChange}
+      />     
+    )
   }
 
   renderValidationFormType() {
     const { authModel, validateDetails } = this.state
     const formFields = selFormTypeFields(authModel)
-
-    return authModel === VBVSECURECODE
-    ? this.renderAuthWebView()
-    : this.renderValidationFields()
+    return (
+      <View>
+        {formFields.map((fieldObj, key) => {
+          const { field, placeholder } = fieldObj
+          return (
+            <Section key={key}>
+              <Input
+                ref={key}
+                placeholder={placeholder}
+                value={validateDetails[field]}
+                onChangeText={this._handleValidateDetails.bind(this, field)}
+                maxLength={19}
+              />
+            </Section>
+          )
+        })}
+      </View>
+    )     
   }
   
   renderCardForm() {
@@ -414,21 +382,21 @@ class PaymentModal extends Component {
           <Input
             placeholder='Account Number'
             value={accountnumber}
-            onChangeText={this._handleAccountDetails.bind(this, 'accountnumber')}
+            onChangeText={this._handleChange.bind(this, 'accountDetails', 'accountnumber')}
           />        
         </Section>
         <Section>
           <Select
             defaultLabel={'SELECT BANK'}
             options={banks}
-            changeValue={this._onSelectChange.bind(this, 'accountbank')}
+            changeValue={this._handleChange.bind(this, 'accountDetails', 'accountbank')}
           />
         </Section>
         <Section>
           <Select
             defaultLabel={'SELECT OTP option'}
             options={validateOption}
-            changeValue={this._onSelectChange.bind(this, 'validateoption')}
+            changeValue={this._handleChange.bind(this, 'accountDetails', 'validateoption')}
           />
         </Section>        
       </View>
@@ -451,7 +419,6 @@ class PaymentModal extends Component {
     const label = needsValidation 
     ? selValidationBtnLabel(authModel) 
     : formatCurrencyAmountLabel(this.props)
-
     return (
       <Section>
         <Button
@@ -534,13 +501,16 @@ class PaymentModal extends Component {
         transparent={transparent}
         animationType='slide'
         onRequestClose={onRequestClose}>
-        <View style={styles.container}>
-          <View style={styles.paymentContainer}>
-            {this.renderCloseModalIcon()}
-            {this.renderPaymentInfo()}
-            {this.renderPaymentForm()}
-          </View>
-        </View>
+        {this.state.authView 
+          ? this.renderAuthWebView() 
+          : <View style={styles.container}>
+              <View style={styles.paymentContainer}>
+                {this.renderCloseModalIcon()}
+                {this.renderPaymentInfo()}
+                {this.renderPaymentForm()}
+              </View>
+            </View>
+        }
       </Modal>
     )
   }
@@ -554,11 +524,9 @@ const styles = StyleSheet.create({
     padding: 20
   },
   paymentContainer: {
-//     alignItems: 'center',
     backgroundColor: '#FFF', 
     borderRadius: 5
   },
-  
   parentSection: {
     flexDirection: 'row',
     padding: 15

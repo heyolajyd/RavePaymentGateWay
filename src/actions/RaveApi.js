@@ -2,6 +2,7 @@ import NetworkInfo from 'react-native-network-info'
 import cryptico from 'cryptico'
 
 const ROOT_URL = 'http://flw-pms-dev.eu-west-1.elasticbeanstalk.com'
+
 const BANKS_URL = '/banks'
 const GET_CHARGED_URL = '/flwv3-pug/getpaidx/api/charge'
 const VALIDATE_CHARGE_URL =  '/flwv3-pug/getpaidx/api/validate'
@@ -26,7 +27,7 @@ const processRequest = (path, method, data) => {
   })
   .then(response => response.json())
   .catch(err => {
-    throw (err);
+    throw err
   });
 }
 
@@ -40,6 +41,8 @@ const getExpiryDate = (expirydate) => {
 
 class RaveApi {
   static PublicKey = 'baA/RgjURU3I0uqH3iRos3NbE8fT+lP8SDXKymsnfdPrMQAEoMBuXtoaQiJ1i5tuBG9EgSEOH1LAZEaAsvwClw==';
+
+  static RootUrl = ROOT_URL
   
   static getAllBanks() {
     return processRequest(BANKS_URL, 'GET')
@@ -78,7 +81,7 @@ class RaveApi {
   }
   
   static chargeCard(cardDetails) {
-    const { email='', cardno, expirydate, cvv } = cardDetails
+    const { cardno, expirydate, cvv } = cardDetails
     return new Promise((resolve, reject) => {
       // Simulate server-side validation
       if (getCardNumber(cardno).length < 16) {
@@ -92,13 +95,15 @@ class RaveApi {
       if (cvv.length !== 3) {
         reject(`CVV must be at 3 characters`);
       }
-
-      if (email.length < 1) {
-        reject(`Email is required.`);
-      }
       
       const requestChargeData = this.serializeCardDetails(cardDetails)
-      return this.processPayment(GET_CHARGED_URL, this.getPayload(requestChargeData))
+      processRequest(GET_CHARGED_URL, 'POST', this.getPayload(requestChargeData))
+        .then(res => {
+          (res.status == 'error')
+          ? reject(res.message)
+          : resolve(res)
+        })
+        .catch(err => reject(err))
     });
   }
 
@@ -106,7 +111,7 @@ class RaveApi {
     return new Promise((resolve, reject) => {
       processRequest(url, 'POST', payload)
         .then(res => {
-          (res.status == 'error')
+          return (res.status == 'error')
           ? reject(res.message)
           : resolve(res)
         })
@@ -120,12 +125,18 @@ class RaveApi {
         reject(`Account Number is required.`);
       }
       const requestChargeData = this.serializeAccountDetails(accountDetails)
-      return this.processPayment(GET_CHARGED_URL, this.getPayload(requestChargeData))
+      processRequest(GET_CHARGED_URL, 'POST', this.getPayload(requestChargeData))
+        .then(res => {
+          (res.status == 'error')
+          ? reject(res.message)
+          : resolve(SAMPLE_RESPONSE)
+        })
+        .catch(err => reject(err))
     });    
   }
 
-  static validateCharge(details) {
-    return this.processPayment(VALIDATE_CHARGE_URL, details)
+  static validateCharge(validatePaymentDetails) {
+    return this.processPayment(VALIDATE_CHARGE_URL, validatePaymentDetails)  
   }
 }
 

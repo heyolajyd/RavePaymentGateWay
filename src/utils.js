@@ -5,17 +5,16 @@ import { createSelector } from 'reselect';
 export const VBVSECURECODE = 'VBVSECURECODE'
 export const PIN = 'PIN'
 export const OTP = 'OTP'
-export const RANDOM_DEBIT = 'Random_Debit'
-export const NO_AUTH = 'no_auth'
+export const RANDOM_DEBIT = 'RANDOM_DEBIT'
+export const NO_AUTH = 'NOAUTH'
 
 // Globals
-export const SUCCESS = 'successful'
-export const NEED_TO_VALIDATE = 'pending'
+export const SUCCESS = 'SUCCESS'
+export const NEED_TO_VALIDATE = 'NEED_TO_VALIDATE'
 export const APPROVED_MESSAGE = 'Approved. Successful'
 
 // Validate Form Type Fields 
 const PIN_FIELDS = [
-  { placeholder: PIN, field: PIN.toLowerCase() }, 
   { placeholder: OTP, field: OTP.toLowerCase() }
 ]
 const RANDOM_DEBIT_FIELDS = [
@@ -33,12 +32,13 @@ export const selData = (props) => {
   }
 }
 
-const selChargeToken = data => `For Future Payments use token: ${data.chargeToken || {}}`
-const selAuthModel = data => data.authModelUsed
-const selResponseCode = data => data.chargeResponseCode
-const selResponseMessage = data => data.chargeResponseMessage
-const selTxnRef = data => data.txRef
-const selFormType = data => data.formType
+export const selChargeToken = data => data.chargeToken || {}
+export const selAuthModel = data => data.authModelUsed
+export const selResponseCode = data => data.chargeResponseCode
+export const selResponseMessage = data => data.chargeResponseMessage
+export const selTxnRef = data => data.txRef
+export const selAuthUrl = data => data.authurl
+export const selFormType = data => data.formType
 
 export const selUserToken = createSelector(
   [selChargeToken], chargeToken => chargeToken.user_token
@@ -55,7 +55,7 @@ export const selValidationBtnLabel = authModel => {
     case RANDOM_DEBIT:
       return 'CONTINUE'
     case PIN:
-      return 'VALIDATE'
+      return 'VALIDATE OTP'
   }
 }
 
@@ -76,7 +76,7 @@ export const formatCardNumber = (value) => {
 }
 
 export const formatExpiryDate = (currValue, prevValue) => {
-  if (currValue.length == 2 && prevValue.length == 1) {
+  if (currValue.length === 2 && (prevValue.length === 1)) {
     return currValue += ' / '
   }
   return currValue
@@ -88,7 +88,7 @@ export const formatAmount = (amount) => {
 }
 
 export const formatCurrencyAmountLabel = (props) => {
-  return `PAY ${props.currency} ${formatAmount(props.amonut)}`
+  return `PAY ${props.currency} ${formatAmount(props.amount)}`
 }
 
 export const getQueryParams = (str) => {
