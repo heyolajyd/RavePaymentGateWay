@@ -7,13 +7,14 @@ import {
 import CardDetailsForm from './partials/CardDetailsForm'
 import TokenForm from './partials/TokenForm'
 import AuthWebView from './partials/AuthWebView'
+import { Section, Button, Input, FadeOutView, Select, CheckBox } from './common'
 
 import RaveApi from '../actions/RaveApi'
-import { Section, Button, Input, FadeOutView, Select, CheckBox } from './common'
+
 import { 
-  selData, formatCurrencyAmountLabel, formatCardNumber, formatExpiryDate, getQueryParams, 
-  SUCCESS, NEED_TO_VALIDATE, VBVSECURECODE, PIN, selResponseAction, selAuthModel, selAuthUrl, 
-  selTxnRef, selResponseMessage, selFormTypeFields, selValidationBtnLabel,
+  SUCCESS, NEED_TO_VALIDATE, VBVSECURECODE, PIN, RANDOM_DEBIT, CARD, ACCOUNT, VALIDATION, selData, getQueryParams,
+  formatCurrencyAmountLabel, selChargeRespAction, selAuthModel, selAuthUrl, selTxnRef, selPaymentTypeTxnMessage, 
+  selFormTypeFields, selValidationBtnLabel,  selTransaction, selValRespAction, selUserToken, selValDetails, selPaymentType
 } from '../utils'
 
 const dimensions = Dimensions.get('window')
@@ -46,17 +47,14 @@ class PaymentModal extends Component {
         accountbank: null,
         validateoption: null
       },
-      validateDetails: {
-        otp: null,
-        txRef: null
-      },      
+      validateDetails: {},      
       banks: [],
       validateOption : [
         { code: 'USSD', name: 'USSD'},
         { code: 'HWTOKEN', name: 'HWTOKEN'}
       ],
-      tabs: ['CARD', 'ACCOUNT'],
-      currentTab: 'CARD',
+      tabs: [CARD, ACCOUNT],
+      currentTab: CARD,
       loading: false,
       errorMessage: null,
       transactionError: false,
@@ -64,47 +62,61 @@ class PaymentModal extends Component {
       transactionMsg: null,
       useToken: false,
       rememberMe: false,
+      isAccountValidation: false,
       needsValidation: false,
       authModel: null,
-      authUrl: null
+      authUrl: null,
+      token: null
     }
   }
   
   _handleSuccessfulPayment(res) {
-    return (selResponseAction(res.data) === SUCCESS)
+    return (selChargeRespAction(res.data) === SUCCESS)
     ? this._handleTxnComplete(res.data)
     : this._handleValidateTxn(res.data)
   }
 
+  _handleSuccessfulValidation(res) {
+    return (selValRespAction(res.data) === SUCCESS)
+    ? this._handleTxnComplete(res.data)
+    : this._handleFailedPayment(res.message)
+  }
+
   _handleTxnComplete(data) {
     const { rememberMe, currentTab } = this.state
-    let transactionMsg = selResponseMessage(data)
+    const token = selUserToken(data)
+
+    let transactionMsg = selPaymentTypeTxnMessage(data)
     
-    if (rememberMe && currentTab === 'CARD') {
-      transactionMsg = selChargeToken(data)
+    if (rememberMe && currentTab === CARD) {
+      transactionMsg = this._getTransactionTokenMessage(token)
     }
 
     this.setState({
       loading: false,
+      token,
       transactionMsg,
       transactionInfo: true
     })    
   }
 
   _handleValidateTxn(data) {
-    const needsValidation = (selResponseAction(data) == NEED_TO_VALIDATE)
+    const needsValidation = (selChargeRespAction(data) == NEED_TO_VALIDATE)
     const authModel = selAuthModel(data)
     const authUrl = selAuthUrl(data)
-    const txRef = selTxnRef(data)
-    const authView = (authModel === VBVSECURECODE)
+    const token = selUserToken(data)
+    const validateDetails = selValDetails(data)
+
+    const isAccountValidation = data.paymentType === ACCOUNT.toLowerCase()
 
     this.setState({ 
-      needsValidation, 
-      authModel, 
+      needsValidation,
+      token,  
+      validateDetails,
       authUrl,
-      authView,
-      loading: false,
-      validateDetails: { ...this.state.validateDetails, txRef }
+      authModel: (isAccountValidation ? ACCOUNT : authModel),
+      authView: (authModel === VBVSECURECODE),
+      loading: false 
     })
   }
   
@@ -116,40 +128,39 @@ class PaymentModal extends Component {
     })
   }
 
-  _processCardPayment() {
-    const { cardDetails } = this.state
-    const data = selData(this.props)
-    return RaveApi.chargeCard({ ...cardDetails, ...data })
+  _processCharge() {
+    const { props, state } = this
+    const transaction = selTransaction({ ...state, ...selData(props) })
+    return transaction
     .then(res => this._handleSuccessfulPayment(res))
     .catch(err => this._handleFailedPayment(err))    
-  }
-  
-  _processAccountpayment() {
-    const { accountDetails } = this.state;
-    const data = selData(this.props)
-    return RaveApi.chargeAccount({ ...accountDetails, ...data })
-    .then(res => this._handleSuccessfulPayment(res))
-    .catch(err => this._handleFailedPayment(err)) 
   }
 
   _processValidateCharge() {
     const { PBFPubKey } = this.props
     const { validateDetails } = this.state
     return RaveApi.validateCharge({ ...validateDetails, PBFPubKey })
-    .then(res => return this._handleSuccessfulPayment(res))
+    .then(res => this._handleSuccessfulValidation(res))
     .catch(err => this._handleFailedPayment(err)) 
   }
     
   _handlePaymentRequest = () => {
-    const { currentTab, needsValidation } = this.state
     this.setState({ loading: true })
 
-    return needsValidation
+    return this.state.needsValidation
     ? this._processValidateCharge()
-    : (currentTab === 'CARD'
-        ? this._processCardPayment()
-        : this._processAccountpayment()
-      )
+    : this._processCharge()
+  }
+
+  _getTransactionTokenMessage(token) {
+    return token 
+    ? (
+      <View>
+        <Text>Transaction Successful</Text>
+        <Text>Use Token: {token} for future transactions.</Text>
+      </View>
+    )
+    : <Text>Transaction Successful!</Text>
   }
 
   _handleCloseModal() {
@@ -195,17 +206,23 @@ class PaymentModal extends Component {
     this.setState({ validateDetails })
   }
 
-  _handleChange(prop, key, value) {
+  _handleChange = (prop, key, value) => () => {
     const propVal = { ...this.state[prop], [key]: value }
     this.setState({ [prop]: propVal })
   }
 
   _handleNavChange = (url) => {
-    isComplete = url.includes(RaveApi.RootUrl)
+    const { rememberMe, token } = this.state;
+    const isComplete = url.includes(RaveApi.RootUrl)
+
+    const transactionMsg = isComplete && rememberMe 
+    ? this._getTransactionTokenMessage(token) 
+    : decodeURI(getQueryParams(url).message);
+
     this.setState({ 
+      transactionMsg,
       authView: !isComplete,
-      transactionMsg: isComplete ? 'Approved. Successful' : null,
-      transactionInfo: true
+      transactionInfo: isComplete
     })
   }
   
@@ -232,7 +249,7 @@ class PaymentModal extends Component {
               key={tab} 
               onPress={this._onSelectTab.bind(this, tab)} 
               style={[styles.tab, activeTab]}>
-              <Icon name={`${tab === 'CARD' ? 'credit-card-alt' : 'university'}`}/>
+              <Icon name={`${tab === CARD ? 'credit-card-alt' : 'university'}`}/>
               &emsp;{tab}
             </Text>
           )
@@ -284,7 +301,7 @@ class PaymentModal extends Component {
         </Section>
       </FadeOutView>
   }
-  
+
   renderInfoNotification() {
     const { transactionInfo, transactionMsg } = this.state
     return transactionInfo &&
@@ -293,30 +310,6 @@ class PaymentModal extends Component {
           <Text style={styles.notificationText}>{transactionMsg}</Text>
         </View>
       </Section>
-  }
-
-  renderValidationFields() {
-    const { authModel, validateDetails } = this.state
-    const formFields = selFormTypeFields(authModel)
-    return (
-      <View>
-        {formFields.map((fieldObj, key) => {
-          const { field, placeholder } = fieldObj
-          return (
-            <Section key={key}>
-              <Input
-                ref={key}
-                placeholder={placeholder}
-                value={validateDetails[field]}
-                onChangeText={this._handleChange.bind(this, 'validateDetails', field)}
-                maxLength={19}
-                onSubmitEditing={() => this._focusNextField(key)}
-              />
-            </Section>
-          )
-        })}
-      </View>
-    )    
   }
 
   renderAuthWebView() {
@@ -382,21 +375,21 @@ class PaymentModal extends Component {
           <Input
             placeholder='Account Number'
             value={accountnumber}
-            onChangeText={this._handleChange.bind(this, 'accountDetails', 'accountnumber')}
+            onChangeText={this._handleAccountDetails.bind(this, 'accountnumber')}
           />        
         </Section>
         <Section>
           <Select
             defaultLabel={'SELECT BANK'}
             options={banks}
-            changeValue={this._handleChange.bind(this, 'accountDetails', 'accountbank')}
+            changeValue={this._handleAccountDetails.bind(this, 'accountbank')}
           />
         </Section>
         <Section>
           <Select
             defaultLabel={'SELECT OTP option'}
             options={validateOption}
-            changeValue={this._handleChange.bind(this, 'accountDetails', 'validateoption')}
+            changeValue={this._handleAccountDetails.bind(this, 'validateoption')}
           />
         </Section>        
       </View>
@@ -408,7 +401,7 @@ class PaymentModal extends Component {
 
     return needsValidation
     ? this.renderValidationFormType()
-    : (currentTab === 'CARD' 
+    : (currentTab === CARD 
       ? this.renderCardForm() 
       : this.renderAccountForm()
     )

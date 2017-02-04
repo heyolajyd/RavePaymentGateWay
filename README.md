@@ -2,8 +2,14 @@
 Rave payment gateway quick checkout for ReactNative application is an easy to implement plugin to interact with [Flutterwave](https://www.flutterwave.com/) payment API. It comes with in-built UI to collect debit card, credit card or bank details.
 
 ***
-<img src="screenshots/screenshot_account_payment_form.png" alt="account payment gateway" height = "400px" width = "220px"/>
-<img src="screenshots/screenshot_card_payment_form.png" alt="card payment gateway" height = "400px" width = "230px"/>
+<img src="screenshots/screenshot_payment_form_ios.png" alt="payment form ios" height = "400px" width = "220px"/>
+<img src="screenshots/screenshot_card_payment_form_ios.png" alt="card payment gateway ios" height = "400px" width = "230px"/>
+<img src="screenshots/screenshot_account_payment_form_ios.png" alt="account payment gateway ios" height = "400px" width = "230px"/>
+
+***
+<img src="screenshots/screenshot_payment_form_andriod.png" alt="payment form android" height = "400px" width = "220px"/>
+<img src="screenshots/screenshot_card_payment_form_android.png" alt="card payment gateway android" height = "400px" width = "230px"/>
+<img src="screenshots/screenshot_account_payment_form_android.png" alt="account payment gateway android" height = "400px" width = "230px"/>
 
 ## Installation
 You can integrate RavePaymentGateway into ReactNative application manually. 
@@ -34,7 +40,10 @@ A typical workflow:
 
 3.  Verify that a `shim.js` in the project root directory is created
  
-> Note: Checkout [react-native-crypto](https://github.com/mvayngrib/react-native-crypto) for more
+```
+Note: Checkout [react-native-crypto](https://github.com/mvayngrib/react-native-crypto) for more
+```
+
 
 4. Drag the `src` folder to the root of your application. Or if you already have a `src` folder then copy the contents over to your application
 
@@ -194,5 +203,6 @@ AppRegistry.registerComponent('SampleApp', () => SampleApp)
 * `description - string`, optional, description of the transaction
 * `PBFPubKey - string`, required
 * `txRef - string`, required
+* `authModel - string` optional (i.e can either be PIN, RANDOM_DEBIT, VBVSECURE etc)
 * `onRequestClose - function` required, callback function, when user wants to decline payment or exit the modal
 

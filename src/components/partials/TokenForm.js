@@ -32,7 +32,7 @@ class TokenForm extends Component {
           <Input
             placeholder='Token'
             value={sortcode}
-            onChangeText={this._handleInputChange.bind(this, 'sortcode')}
+            onChangeText={this._handleInputChange.bind(this, 'shortcode')}
             maxLength={10}
           />
         </Section>

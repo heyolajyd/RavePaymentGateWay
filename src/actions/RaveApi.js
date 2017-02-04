@@ -80,33 +80,6 @@ class RaveApi {
     }  
   }
   
-  static chargeCard(cardDetails) {
-    const { cardno, expirydate, cvv } = cardDetails
-    return new Promise((resolve, reject) => {
-      // Simulate server-side validation
-      if (getCardNumber(cardno).length < 16) {
-        reject(`Card number must be 16 characters.`);
-      }
-
-      if (getExpiryDate(expirydate).join('').length < 3) {
-        reject(`Invalid card expiry date.`);
-      }
-
-      if (cvv.length !== 3) {
-        reject(`CVV must be at 3 characters`);
-      }
-      
-      const requestChargeData = this.serializeCardDetails(cardDetails)
-      processRequest(GET_CHARGED_URL, 'POST', this.getPayload(requestChargeData))
-        .then(res => {
-          (res.status == 'error')
-          ? reject(res.message)
-          : resolve(res)
-        })
-        .catch(err => reject(err))
-    });
-  }
-
   static processPayment(url, payload) {
     return new Promise((resolve, reject) => {
       processRequest(url, 'POST', payload)
@@ -118,25 +91,22 @@ class RaveApi {
         .catch(err => reject(err))
     })
   }
+
+  static chargeCard(cardDetails) {
+    const requestChargeData = this.serializeCardDetails(cardDetails)
+    return this.processPayment(GET_CHARGED_URL, this.getPayload(requestChargeData))
+  }  
   
   static chargeAccount(accountDetails) {
-    return new Promise((resolve, reject) => {
-      if (accountDetails.accountnumber.length < 1) {
-        reject(`Account Number is required.`);
-      }
-      const requestChargeData = this.serializeAccountDetails(accountDetails)
-      processRequest(GET_CHARGED_URL, 'POST', this.getPayload(requestChargeData))
-        .then(res => {
-          (res.status == 'error')
-          ? reject(res.message)
-          : resolve(SAMPLE_RESPONSE)
-        })
-        .catch(err => reject(err))
-    });    
+    const requestChargeData = this.serializeAccountDetails(accountDetails)
+    return this.processPayment(GET_CHARGED_URL, this.getPayload(requestChargeData))   
   }
 
   static validateCharge(validatePaymentDetails) {
-    return this.processPayment(VALIDATE_CHARGE_URL, validatePaymentDetails)  
+    const { otp } = validatePaymentDetails
+    return this.processPayment(VALIDATE_CHARGE_URL, 
+      { ...validatePaymentDetails, 'otp': parseFloat(otp) }
+    )  
   }
 }
 
