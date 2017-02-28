@@ -1,11 +1,14 @@
+import { omit } from 'underscore'
 import NetworkInfo from 'react-native-network-info'
 import cryptico from 'cryptico'
 
 const ROOT_URL = 'http://flw-pms-dev.eu-west-1.elasticbeanstalk.com'
+const API_URL = '/flwv3-pug/getpaidx/api'
 
 const BANKS_URL = '/banks'
-const GET_CHARGED_URL = '/flwv3-pug/getpaidx/api/charge'
-const VALIDATE_CHARGE_URL =  '/flwv3-pug/getpaidx/api/validate'
+const GET_CHARGED_URL = `${API_URL}/charge`
+const VALIDATE_ACCOUNT_URL = `${API_URL}/validate`
+const VALIDATE_CARD_URL =  `${API_URL}/validatecharge`
 
 let IP = null
 const requestBody = (data, method) => {
@@ -84,7 +87,7 @@ class RaveApi {
     return new Promise((resolve, reject) => {
       processRequest(url, 'POST', payload)
         .then(res => {
-          return (res.status == 'error')
+          return (res.status === 'error')
           ? reject(res.message)
           : resolve(res)
         })
@@ -103,9 +106,11 @@ class RaveApi {
   }
 
   static validateCharge(validatePaymentDetails) {
-    const { otp } = validatePaymentDetails
-    return this.processPayment(VALIDATE_CHARGE_URL, 
-      { ...validatePaymentDetails, 'otp': parseFloat(otp) }
+    const { otp, currentTab, ...rest } = validatePaymentDetails;
+    const url = currentTab === 'CARD' ? VALIDATE_CARD_URL : VALIDATE_ACCOUNT_URL
+
+    return this.processPayment(url, 
+      { ...rest, 'otp': parseFloat(otp) }
     )  
   }
 }

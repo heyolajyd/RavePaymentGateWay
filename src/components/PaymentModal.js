@@ -12,10 +12,12 @@ import { Section, Button, Input, FadeOutView, Select, CheckBox } from './common'
 import RaveApi from '../actions/RaveApi'
 
 import { 
-  SUCCESS, NEED_TO_VALIDATE, VBVSECURECODE, PIN, RANDOM_DEBIT, CARD, ACCOUNT, VALIDATION, selData, getQueryParams,
-  formatCurrencyAmountLabel, selChargeRespAction, selAuthModel, selAuthUrl, selTxnRef, selPaymentTypeTxnMessage, 
-  selFormTypeFields, selValidationBtnLabel,  selTransaction, selValRespAction, selUserToken, selValDetails, selPaymentType
-} from '../utils'
+  SUCCESS, NEED_TO_VALIDATE, VBVSECURECODE, PIN, RANDOM_DEBIT, AVS, CARD, ACCOUNT, VALIDATION, selData, getQueryParams,
+  selChargeRespAction, selAuthModel, selAuthUrl, selTxnRef, selPaymentTypeTxnMessage, selFormTypeFields, selValidationBtnLabel,  
+  selTransaction, selValRespAction, selUserToken, selValDetails, selPaymentType, isAuthSuggested
+} from '../selector'
+
+import { formatCurrencyAmountLabel } from '../utils'
 
 const dimensions = Dimensions.get('window')
 
@@ -77,7 +79,10 @@ class PaymentModal extends Component {
   }
 
   _handleSuccessfulValidation(res) {
-    return (selValRespAction(res.data) === SUCCESS)
+    const { data } = res;
+    const { currentTab } = this.state
+
+    return (selValRespAction({ ...data, currentTab }) === SUCCESS)
     ? this._handleTxnComplete(res.data)
     : this._handleFailedPayment(res.message)
   }
@@ -93,15 +98,17 @@ class PaymentModal extends Component {
     }
 
     this.setState({
-      loading: false,
       token,
       transactionMsg,
+      loading: false,
       transactionInfo: true
     })    
   }
 
   _handleValidateTxn(data) {
     const needsValidation = (selChargeRespAction(data) == NEED_TO_VALIDATE)
+    const isSuggestedAuth = isAuthSuggested(data)
+
     const authModel = selAuthModel(data)
     const authUrl = selAuthUrl(data)
     const token = selUserToken(data)
@@ -114,6 +121,7 @@ class PaymentModal extends Component {
       token,  
       validateDetails,
       authUrl,
+      isSuggestedAuth,
       authModel: (isAccountValidation ? ACCOUNT : authModel),
       authView: (authModel === VBVSECURECODE),
       loading: false 
@@ -138,16 +146,18 @@ class PaymentModal extends Component {
 
   _processValidateCharge() {
     const { PBFPubKey } = this.props
-    const { validateDetails } = this.state
-    return RaveApi.validateCharge({ ...validateDetails, PBFPubKey })
+    const { validateDetails, currentTab } = this.state
+    return RaveApi.validateCharge({ ...validateDetails, PBFPubKey, currentTab })
     .then(res => this._handleSuccessfulValidation(res))
     .catch(err => this._handleFailedPayment(err)) 
   }
     
   _handlePaymentRequest = () => {
+    const { needsValidation, isSuggestedAuth } = this.state
+
     this.setState({ loading: true })
 
-    return this.state.needsValidation
+    return !isSuggestedAuth && needsValidation
     ? this._processValidateCharge()
     : this._processCharge()
   }
@@ -325,20 +335,24 @@ class PaymentModal extends Component {
   }
 
   renderValidationFormType() {
-    const { authModel, validateDetails } = this.state
-    const formFields = selFormTypeFields(authModel)
+    const { authModel, validateDetails, isSuggestedAuth } = this.state
+    const formFields = selFormTypeFields(this.state)
     return (
       <View>
         {formFields.map((fieldObj, key) => {
-          const { field, placeholder } = fieldObj
+          const { field, placeholder, secureTextEntry } = fieldObj
           return (
             <Section key={key}>
               <Input
                 ref={key}
                 placeholder={placeholder}
                 value={validateDetails[field]}
-                onChangeText={this._handleValidateDetails.bind(this, field)}
+                onChangeText={ isSuggestedAuth 
+                  ? this._handleCardDetails.bind(this, field)
+                  : this._handleValidateDetails.bind(this, field)
+                }
                 maxLength={19}
+                secureTextEntry={secureTextEntry}
               />
             </Section>
           )
@@ -408,9 +422,9 @@ class PaymentModal extends Component {
   }
 
   renderButtonType() {
-    const { needsValidation, authModel, loading } = this.state
+    const { needsValidation, loading } = this.state
     const label = needsValidation 
-    ? selValidationBtnLabel(authModel) 
+    ? selValidationBtnLabel(this.state) 
     : formatCurrencyAmountLabel(this.props)
     return (
       <Section>

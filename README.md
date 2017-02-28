@@ -19,8 +19,8 @@ A typical workflow:
 
 1. Install other dependencies
   ```sh
-  npm i --save underscore react-native-vector-icons cryptico
-  #link the installed icons to your application
+  npm i --save react-native-network-info underscore react-native-vector-icons cryptico reselect
+  #link the installed modules to your application
   react-native link
   ```
 
@@ -40,9 +40,7 @@ A typical workflow:
 
 3.  Verify that a `shim.js` in the project root directory is created
  
-```
-Note: Checkout [react-native-crypto](https://github.com/mvayngrib/react-native-crypto) for more
-```
+	Note: Checkout [react-native-crypto](https://github.com/mvayngrib/react-native-crypto) for more
 
 
 4. Drag the `src` folder to the root of your application. Or if you already have a `src` folder then copy the contents over to your application
@@ -63,7 +61,7 @@ In `index.ios.js` or `index.android.js`
 
 ```js
 import React, { Component, } from 'react'
-import { AppRegistry, View, Text, TouchableOpacity } from 'react-native'
+import { AppRegistry, View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { Header, Card, CardSection, Input } from './src/components/common'
 import PaymentModal from './src/components/PaymentModal'
 
@@ -203,6 +201,16 @@ AppRegistry.registerComponent('SampleApp', () => SampleApp)
 * `description - string`, optional, description of the transaction
 * `PBFPubKey - string`, required
 * `txRef - string`, required
-* `authModel - string` optional (i.e can either be PIN, RANDOM_DEBIT, VBVSECURE etc)
+* `authModel - string` required only when `PIN` auth model is used
 * `onRequestClose - function` required, callback function, when user wants to decline payment or exit the modal
 
+**More to come**
+
+- Write tests
+- Proper Linting
+
+License
+----
+MIT
+
+**Free Software, Hell Yeah!**

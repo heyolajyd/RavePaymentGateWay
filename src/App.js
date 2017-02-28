@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity } from 'react-native'
 import { Header, Card, CardSection, Input } from './components/common'
 import PaymentModal from './components/PaymentModal'
 
+console.disableYellowBox = true;
+
 class App extends Component {
   constructor(props) {
     super(props)
@@ -86,7 +88,7 @@ class App extends Component {
         title='Flw Rave Title'
         description='Flw Rave Payment Description'
         PBFPubKey='FLWPUBK-7013f39a5c11ff1c7403361b436b1b94-X'
-        txRef='rave-dash-1483020559'
+        txRef='rave-dash-1488280335'
         onRequestClose={this.closePaymentModal}
       />    
     )

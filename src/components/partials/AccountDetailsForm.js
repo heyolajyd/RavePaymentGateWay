@@ -1,10 +1,8 @@
 import React, { Component, PropTypes } from 'react'
 import { View, StyleSheet } from 'react-native'
 import { Section, Input, CheckBox } from '../common'
-import { PIN } from '../../selector'
-import { formatCardNumber, formatExpiryDate } from '../../utils'
 
-class CardDetailsForm extends Component {
+class AccountDetailsForm extends Component {
 
   static propTypes = {
     onInputChange   : PropTypes.func,
@@ -54,7 +52,7 @@ class CardDetailsForm extends Component {
   
   renderPinInput() {
     const { pin } = this.state
-    return (this.props.authModel === PIN)
+    return (this.props.authModel == PIN)
     ? (
       <Section>
         <Input
@@ -78,6 +76,7 @@ class CardDetailsForm extends Component {
             placeholder='Card Number'
             value={cardno}
             onChangeText={this._handleInputChange.bind(this, 'cardno')}
+            maxLength={19}
           />
         </Section>
         <Section>
@@ -128,4 +127,4 @@ const styles = StyleSheet.create({
   },
 })
 
-export default CardDetailsForm
+export default AccountDetailsForm
