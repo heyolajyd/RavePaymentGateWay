@@ -36,15 +36,12 @@ class CheckBox extends Component {
   }
   
   onChange() {
-    this.setState({
-      isChecked: !this.state.isChecked
-    })
     this.props.onChange()
   }
   
   genCheckedImage() {
     const { checkedImage, unCheckedImage } = this.props;
-    const source = this.state.isChecked ? checkedImage : unCheckedImage;
+    const source = this.props.isChecked ? checkedImage : unCheckedImage;
     
     return (
       <Image style={styles.imageContainer} source={source} />

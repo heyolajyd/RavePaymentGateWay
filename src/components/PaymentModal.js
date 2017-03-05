@@ -12,12 +12,13 @@ import { Section, Button, Input, FadeOutView, Select, CheckBox } from './common'
 import RaveApi from '../actions/RaveApi'
 
 import { 
-  SUCCESS, NEED_TO_VALIDATE, VBVSECURECODE, PIN, RANDOM_DEBIT, AVS, CARD, ACCOUNT, VALIDATION, selData, getQueryParams,
-  selChargeRespAction, selAuthModel, selAuthUrl, selTxnRef, selPaymentTypeTxnMessage, selFormTypeFields, selValidationBtnLabel,  
-  selTransaction, selValRespAction, selUserToken, selValDetails, selPaymentType, isAuthSuggested
+  SUCCESS, NEED_TO_VALIDATE, VBVSECURECODE, PIN, RANDOM_DEBIT, AVS, CARD, ACCOUNT, VALIDATION, selData,
+  selChargeRespAction, selAuthModel, selAuthUrl, selTxnRef, selPaymentTypeTxnMessage, selFormTypeFields, 
+  selValidationBtnLabel, selTransaction, selValRespAction, selUserToken, selValDetails, selPaymentType, 
+  isAuthSuggested, isToken, isEmbedToken, isRememberMe,  isUseToken, USE_EMBED_TOKEN, USE_TOKEN, selEmbeddedToken
 } from '../selector'
 
-import { formatCurrencyAmountLabel } from '../utils'
+import { getQueryParams, formatCurrencyAmountLabel } from '../utils'
 
 const dimensions = Dimensions.get('window')
 
@@ -40,6 +41,12 @@ class PaymentModal extends Component {
       throw err
     })
   }
+
+  componentDidMount() {
+    RaveApi.getEmbeddedToken().then((embedToken) => {
+      this.setState({ embedToken });
+    }).done();
+  }  
   
   _calculateState() {
     return {
@@ -62,8 +69,7 @@ class PaymentModal extends Component {
       transactionError: false,
       transactionInfo: false,
       transactionMsg: null,
-      useToken: false,
-      rememberMe: false,
+      chkGrpValue: null,
       isAccountValidation: false,
       needsValidation: false,
       authModel: null,
@@ -88,12 +94,13 @@ class PaymentModal extends Component {
   }
 
   _handleTxnComplete(data) {
-    const { rememberMe, currentTab } = this.state
+    const { chkGrpValue, currentTab } = this.state
     const token = selUserToken(data)
+    const embedToken = selEmbeddedToken(data)
 
     let transactionMsg = selPaymentTypeTxnMessage(data)
     
-    if (rememberMe && currentTab === CARD) {
+    if (isRememberMe(chkGrpValue) && currentTab === CARD) {
       transactionMsg = this._getTransactionTokenMessage(token)
     }
 
@@ -102,7 +109,7 @@ class PaymentModal extends Component {
       transactionMsg,
       loading: false,
       transactionInfo: true
-    })    
+    }, this._handleEmbedToken(embedToken))    
   }
 
   _handleValidateTxn(data) {
@@ -112,6 +119,7 @@ class PaymentModal extends Component {
     const authModel = selAuthModel(data)
     const authUrl = selAuthUrl(data)
     const token = selUserToken(data)
+    const embedToken = selEmbeddedToken(data)
     const validateDetails = selValDetails(data)
 
     const isAccountValidation = data.paymentType === ACCOUNT.toLowerCase()
@@ -125,7 +133,7 @@ class PaymentModal extends Component {
       authModel: (isAccountValidation ? ACCOUNT : authModel),
       authView: (authModel === VBVSECURECODE),
       loading: false 
-    })
+    }, this._handleEmbedToken(embedToken))
   }
   
   _handleFailedPayment(error) {
@@ -134,6 +142,10 @@ class PaymentModal extends Component {
       transactionError: true,
       errorMessage: error
     })
+  }
+
+  _handleEmbedToken(value) {
+    RaveApi.setEmbeddedToken(value)
   }
 
   _processCharge() {
@@ -165,10 +177,10 @@ class PaymentModal extends Component {
   _getTransactionTokenMessage(token) {
     return token 
     ? (
-      <View>
-        <Text>Transaction Successful</Text>
+      <Text>
+        <Text>Transaction Successful. {'\n'}</Text>
         <Text>Use Token: {token} for future transactions.</Text>
-      </View>
+      </Text>
     )
     : <Text>Transaction Successful!</Text>
   }
@@ -180,8 +192,12 @@ class PaymentModal extends Component {
     )
   }
 
-  _handleCheckBox(key) {
-    this.setState({ [key]: !this.state[key] })
+  _handleCheckBox = (key) => {
+    let { chkGrpValue } = this.state;
+
+    chkGrpValue = chkGrpValue === key ? null : key;
+
+    this.setState({ chkGrpValue })
   }
   
   _onSelectTab = (tab) => {
@@ -222,10 +238,10 @@ class PaymentModal extends Component {
   }
 
   _handleNavChange = (url) => {
-    const { rememberMe, token } = this.state;
+    const { chkGrpValue, token } = this.state;
     const isComplete = url.includes(RaveApi.RootUrl)
 
-    const transactionMsg = isComplete && rememberMe 
+    const transactionMsg = isComplete && isRememberMe(chkGrpValue)
     ? this._getTransactionTokenMessage(token) 
     : decodeURI(getQueryParams(url).message);
 
@@ -268,16 +284,21 @@ class PaymentModal extends Component {
     )
   }
 
-  renderUseToken() {
-    const { useToken } = this.state;
+  renderUseTokenCtrl() {
+    const { chkGrpValue } = this.state;
     return (
       <Section>
         <View style={styles.useTokenContainer}>
           <CheckBox
+            onChange={this._handleCheckBox.bind(this, 'useEmbedToken')}
+            isChecked={isEmbedToken(chkGrpValue)}
+            leftText={'Use Embed Token'}
+          />        
+          <CheckBox
             onChange={this._handleCheckBox.bind(this, 'useToken')}
-            isChecked={useToken}
-            leftText={'Use Token'}
-          />
+            isChecked={isUseToken(chkGrpValue)}
+            rightText={'Use Token'}
+          />          
         </View>
       </Section>
     );
@@ -285,7 +306,10 @@ class PaymentModal extends Component {
   
   renderUseTokenForm() {
     return (
-      <TokenForm onInputChange={this._handleCardDetails.bind(this)} />
+      <TokenForm 
+        onInputChange={this._handleCardDetails.bind(this)}
+        useEmbedToken={isEmbedToken(this.state.chkGrpValue)}
+      />
     )
   }
 
@@ -296,6 +320,7 @@ class PaymentModal extends Component {
         authModel={authModel}
         onInputChange={this._handleCardDetails.bind(this)}
         onCheckBoxChange={this._handleCheckBox}
+        rememberMe={isRememberMe(this.state.chkGrpValue)}
       />
     )
   }
@@ -324,6 +349,7 @@ class PaymentModal extends Component {
 
   renderAuthWebView() {
     const { authUrl, authView } = this.state
+    
     return (
       <AuthWebView 
         url={authUrl} 
@@ -362,15 +388,16 @@ class PaymentModal extends Component {
   }
   
   renderCardForm() {
-    const { useToken, needsValidation } = this.state;
+    const { chkGrpValue, needsValidation } = this.state;
+
     return (
       <View>
         {needsValidation 
           ? this.renderValidationFormType()
           : (
             <View>
-              {this.renderUseToken()}
-              {useToken
+              {this.renderUseTokenCtrl()}
+              {isToken(chkGrpValue)
                 ? this.renderUseTokenForm()
                 : this.renderUseCardDetailsForm()
               }
@@ -645,6 +672,11 @@ const styles = StyleSheet.create({
   useTokenContainer: {
     flex: 1,
     alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    flexDirection: 'row'
+  },
+  tokenNotification: {
+    flex: 1,
     flexDirection: 'row'
   }
 })

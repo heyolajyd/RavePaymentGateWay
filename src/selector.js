@@ -1,5 +1,5 @@
 import { createSelector } from 'reselect';
-import { omit } from 'underscore';
+
 import RaveApi from './actions/RaveApi'
 
 // Auth Models
@@ -14,7 +14,9 @@ export const AVS = 'AVS'
 export const SUCCESS = 'SUCCESS'
 export const NEED_TO_VALIDATE = 'NEED_TO_VALIDATE'
 export const FAILURE = 'FAILURE'
-
+export const USE_TOKEN = 'useToken'
+export const USE_EMBED_TOKEN = 'useEmbedToken'
+export const REMEMBER_ME = 'rememberMe'
 
 // Transaction Types
 export const CARD = 'CARD'
@@ -53,6 +55,10 @@ export const selData = (props) => {
 }
 
 export const isAuthSuggested = data => data.suggested_auth ? true : false
+export const isToken = chkGrpValue => [USE_EMBED_TOKEN, USE_TOKEN].includes(chkGrpValue)
+export const isEmbedToken = chkGrpValue => chkGrpValue == USE_EMBED_TOKEN
+export const isRememberMe = chkGrpValue => chkGrpValue == REMEMBER_ME
+export const isUseToken = chkGrpValue => chkGrpValue == USE_TOKEN
 
 // Response Data selectors
 export const selChargeToken = data => data.chargeToken || {}
@@ -72,12 +78,27 @@ export const selPaymentType = data => data.paymentType || (data.tx ? data.tx.pay
 const selCardDetails = state => state.cardDetails
 const selAccountDetails = state => state.accountDetails
 const selCurrentTab = state => state.currentTab
-const selUseToken = state => state.useToken
+const selUseToken = state => isToken(state.chkGrpValue)
+const selLocalToken = state => state.embedToken
 const selIsSuggestedAuth = state => state.isSuggestedAuth
 const selModel = state => state.authModel
+const selChkGrpVal = state => state.chkGrpValue
+
+export const selTokenParams = createSelector(
+  [selChkGrpVal, selCardDetails], (chkGrpVal, cardDetails) => {
+    switch (chkGrpVal) {
+      case USE_EMBED_TOKEN:
+        return 
+    }
+  }
+)
 
 export const selUserToken = createSelector(
   [selChargeToken], chargeToken => chargeToken.user_token || ''
+);
+
+export const selEmbeddedToken = createSelector(
+  [selChargeToken], chargeToken => chargeToken.embed_token || ''
 );
 
 export const selChargeRespAction = createSelector(
@@ -117,14 +138,27 @@ export const selValDetails = createSelector(
 )
 
 export const selCard = createSelector(
-  [selCardDetails, selUseToken, selIsSuggestedAuth, selModel],
-  (cardDetails, useToken, isSuggestedAuth, model) => {
-    const { shortcode, cvv } = cardDetails
-    const details = omit(cardDetails, 'shortcode')
+  [selCardDetails, selUseToken, selChkGrpVal, selLocalToken, selIsSuggestedAuth, selModel],
+  (cardDetails, useToken, chkGrpVal, localToken, isSuggestedAuth, model) => {
+    const { shortcode, ...rest } = cardDetails;
 
+    let tokenParams = {};
+
+    switch(chkGrpVal) {
+      case USE_EMBED_TOKEN:
+        tokenParams = { cvv: cardDetails.cvv, embedtoken: localToken }
+        break;
+      case USE_TOKEN:
+        tokenParams = { shortcode, cvv: cardDetails.cvv }
+        break;
+      default:
+        tokenParams = {}
+    }
+    
     return useToken 
-    ? { shortcode, cvv }
-    : (isSuggestedAuth ? { ...details, 'suggested_auth': model } : { ...details })
+    ? (isSuggestedAuth 
+      ? { suggested_auth: model, ...tokenParams } : { ...tokenParams })
+    : (isSuggestedAuth ? { ...rest, 'suggested_auth': model } : { ...rest })
   }
 )
 

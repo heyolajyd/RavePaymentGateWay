@@ -70,7 +70,7 @@ class CardDetailsForm extends Component {
   }
 
   render() {
-    const { cardno, cvv, expirydate, rememberMe } = this.state
+    const { cardno, cvv, expirydate } = this.state
     return (
       <View>
         <Section>
@@ -104,7 +104,7 @@ class CardDetailsForm extends Component {
           <View style={styles.checkboxContainer}>
             <CheckBox
               onChange={this._handleCheckBoxChange}
-              isChecked={rememberMe}
+              isChecked={this.props.rememberMe}
               rightText={'Remember my card'}
             />
           </View>

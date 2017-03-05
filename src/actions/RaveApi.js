@@ -1,5 +1,6 @@
 import { omit } from 'underscore'
 import NetworkInfo from 'react-native-network-info'
+import { AsyncStorage } from 'react-native'
 import cryptico from 'cryptico'
 
 const ROOT_URL = 'http://flw-pms-dev.eu-west-1.elasticbeanstalk.com'
@@ -9,6 +10,8 @@ const BANKS_URL = '/banks'
 const GET_CHARGED_URL = `${API_URL}/charge`
 const VALIDATE_ACCOUNT_URL = `${API_URL}/validate`
 const VALIDATE_CARD_URL =  `${API_URL}/validatecharge`
+
+const STORAGE_KEY = 'embeddedToken'
 
 let IP = null
 const requestBody = (data, method) => {
@@ -51,10 +54,19 @@ class RaveApi {
     return processRequest(BANKS_URL, 'GET')
   }
 
+  static getEmbeddedToken = async () => {
+    const value = await AsyncStorage.getItem(STORAGE_KEY);
+    return value;
+  }
+
+  static setEmbeddedToken = async(value) => {
+    AsyncStorage.setItem(STORAGE_KEY, value);
+  }
+
   static serializeCardDetails(cardDetails) {
     const { cardno, expirydate, ...rest } = cardDetails
     const datesArr = getExpiryDate(expirydate)
-    
+    console.log(cardDetails);
     return {
       IP,
       cardno: getCardNumber(cardno),
@@ -71,7 +83,7 @@ class RaveApi {
       meta: [],
       narration: null,
       passcode: null,
-      payment_type:'account',
+      payment_type: 'account',
       ...accountDetails
     }
   }
