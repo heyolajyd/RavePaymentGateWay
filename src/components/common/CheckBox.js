@@ -1,4 +1,5 @@
-import React, { Component, PropTypes } from 'react'
+import React, { Component } from 'react'
+import PropTypes from 'prop-types'
 import { View, StyleSheet, Image, Text, TouchableHighlight } from 'react-native'
 
 const CB_ENABLED_IMAGE = require('../../assets/check_box.png');

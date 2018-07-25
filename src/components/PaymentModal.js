@@ -1,4 +1,5 @@
-import React, { Component, PropTypes } from 'react'
+import React, { Component } from 'react'
+import PropTypes from 'prop-types'
 import Icon from 'react-native-vector-icons/FontAwesome'
 import { 
   TouchableHighlight, View, Modal, Text, TextInput, StyleSheet, Image, Linking, WebView, Dimensions
